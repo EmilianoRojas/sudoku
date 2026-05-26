@@ -107,6 +107,8 @@ function buildBoardDOM() {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.dataset.idx = i;
+    cell.dataset.row = Math.floor(i / 9);
+    cell.dataset.col = i % 9;
     cell.innerHTML = '<div class="notes"></div>';
     cell.addEventListener('click', () => selectCell(i));
     board.appendChild(cell);
