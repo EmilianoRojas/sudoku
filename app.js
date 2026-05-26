@@ -6,13 +6,27 @@ const diffRow = $('difficultyRow'), gameInfoEl = $('gameInfo');
 const state = { solution:[], puzzle:[], userGrid:[], notes:[], fixed:[], history:[], historyIndex:-1, selected:null, notesMode:false, difficulty:'medium', errors:0, solved:false, timerSeconds:0, timerInterval:null };
 
 const TEMPLATE = '817642359325179468649853721572438196934516287168927543756384912483291675291765834';
+const DIFFICULTY_CLUES = { easy: 42, medium: 34, hard: 28, evil: 22 };
+const MAX_GENERATION_ATTEMPTS = 10;
 
+/* ═══ Helper ═══ */
+function fisherYates(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  return arr;
+}
+
+function makeRng(seed) {
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  return () => { s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; return (s >>> 0) / 0xffffffff; };
+}
+
+/* ═══ Candidates / MRV solver ═══ */
 function candidates(g, i) {
   const r = Math.floor(i / 9), c = i % 9, br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
   const used = new Set();
   for (let k = 0; k < 9; k++) { used.add(g[r * 9 + k]); used.add(g[k * 9 + c]); }
   for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) used.add(g[rr * 9 + cc]);
-  return [1,2,3,4,5,6,7,8,9].filter(n => !used.has(n));
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(n => !used.has(n));
 }
 
 function findBestEmptyCell(g) {
@@ -41,71 +55,80 @@ function countSol(g, limit) {
   return count;
 }
 
-function makeRng(seed) {
-  let s = (seed ^ 0xdeadbeef) >>> 0;
-  return () => { s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; return (s >>> 0) / 0xffffffff; };
-}
+/* ═══ Grid builder ═══ */
+function buildSolvedGrid(rng) {
+  const base = TEMPLATE.split('').map(Number);
 
-function fisherYates(arr, rng) {
-  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-  return arr;
-}
-
-function generate(diff) {
-  const seed = Date.now() ^ (diff.charCodeAt(0) * 12345);
-  const rng = makeRng(seed);
-  const sol = TEMPLATE.split('').map(Number);
-
-  // Shuffle bands
-  for (let b = 0; b < 3; b++) {
-    const band = sol.slice(b * 27, b * 27 + 27);
-    const order = fisherYates([0, 1, 2], rng);
-    const reordered = [].concat(...order.map(o => band.slice(o * 9, o * 9 + 9)));
-    for (let k = 0; k < 27; k++) sol[b * 27 + k] = reordered[k];
-  }
-
-  // Shuffle stacks - ONE perm for the whole stack applied to all rows
-  for (let st = 0; st < 3; st++) {
-    const perm = fisherYates([0, 1, 2], rng);
-    for (let r = 0; r < 9; r++) {
-      const col0 = st * 3;
-      const v0 = sol[r * 9 + col0], v1 = sol[r * 9 + col0 + 1], v2 = sol[r * 9 + col0 + 2];
-      sol[r * 9 + col0] = [v0, v1, v2][perm[0]];
-      sol[r * 9 + col0 + 1] = [v0, v1, v2][perm[1]];
-      sol[r * 9 + col0 + 2] = [v0, v1, v2][perm[2]];
+  // Map rows: shuffle whole bands, then rows within bands
+  const rowMap = [];
+  for (const band of fisherYates([0, 1, 2], rng)) {
+    for (const rowInBand of fisherYates([0, 1, 2], rng)) {
+      rowMap.push(band * 3 + rowInBand);
     }
   }
 
-  // Swap digits
-  const dMap = {1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
-  for (let i = 0; i < 6; i++) {
-    const a = Math.floor(rng() * 9) + 1, b = Math.floor(rng() * 9) + 1;
-    if (a !== b) { for (let k = 1; k <= 9; k++) { if (dMap[k] === a) dMap[k] = b; else if (dMap[k] === b) dMap[k] = a; } }
-  }
-  const solution = sol.map(v => dMap[v]);
-
-  // Create puzzle
-  const target = {easy:42, medium:34, hard:28, evil:22}[diff] || 34;
-  const toRemove = 81 - target;
-  const puzzle = [...solution];
-  const idxs = fisherYates([...Array(81).keys()], rng);
-
-  for (let removed = 0, tries = 0; removed < toRemove && tries < 5000; tries++) {
-    const i = idxs[tries % 81];
-    if (puzzle[i] === 0) continue;
-    const bak = puzzle[i];
-    puzzle[i] = 0;
-    const copy = [...puzzle];
-    if (!copy.includes(0) || countSol(copy, 2) === 1) { removed++; } else { puzzle[i] = bak; }
+  // Map columns: shuffle whole stacks, then cols within stacks
+  const colMap = [];
+  for (const stack of fisherYates([0, 1, 2], rng)) {
+    for (const colInStack of fisherYates([0, 1, 2], rng)) {
+      colMap.push(stack * 3 + colInStack);
+    }
   }
 
-  return { solution, puzzle };
+  // Full digit remap
+  const digitMap = [0, ...fisherYates([1, 2, 3, 4, 5, 6, 7, 8, 9], rng)];
+
+  const solution = [];
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      solution.push(digitMap[base[rowMap[r] * 9 + colMap[c]]]);
+    }
+  }
+  return solution;
 }
 
+/* ═══ Generator ═══ */
+function generateAttempt(diff, seed) {
+  const target = DIFFICULTY_CLUES[diff] || DIFFICULTY_CLUES.medium;
+  const rng = makeRng(seed);
+  const solution = buildSolvedGrid(rng);
+  const puzzle = [...solution];
+  const idxs = fisherYates([...Array(81).keys()], rng);
+  let removed = 0;
+
+  for (const i of idxs) {
+    if (81 - removed <= target) break;
+    const bak = puzzle[i];
+    puzzle[i] = 0;
+    if (countSol([...puzzle], 2) === 1) {
+      removed++;
+    } else {
+      puzzle[i] = bak;
+    }
+  }
+
+  return { solution, puzzle, clues: puzzle.filter(v => v !== 0).length, target };
+}
+
+function generate(diff) {
+  const baseSeed = Date.now() ^ (diff.charCodeAt(0) * 12345);
+  let best = null;
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+    const candidate = generateAttempt(diff, baseSeed + attempt * 9973);
+    if (!best || candidate.clues < best.clues) best = candidate;
+    if (candidate.clues <= candidate.target) {
+      return { solution: candidate.solution, puzzle: candidate.puzzle };
+    }
+  }
+  return { solution: best.solution, puzzle: best.puzzle };
+}
+
+/* ═══ Timer ═══ */
 function startTimer() { stopTimer(); state.timerSeconds = 0; updateTimerDisplay(); state.timerInterval = setInterval(() => { state.timerSeconds++; updateTimerDisplay(); save(); }, 1000); }
 function stopTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 function updateTimerDisplay() { const s = state.timerSeconds; timerEl.textContent = String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0'); }
 
+/* ═══ History ═══ */
 function pushHistory() {
   state.history = state.history.slice(0, state.historyIndex + 1);
   state.history.push({ userGrid: [...state.userGrid], notes: state.notes.map(s => new Set(s)), errors: state.errors });
@@ -116,6 +139,7 @@ function pushHistory() {
 function undo() { if (state.historyIndex <= 0) return; state.historyIndex--; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
 function redo() { if (state.historyIndex >= state.history.length - 1) return; state.historyIndex++; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
 
+/* ═══ Board ═══ */
 function buildBoardDOM() {
   board.innerHTML = '';
   for (let i = 0; i < 81; i++) {
@@ -137,11 +161,20 @@ function renderBoard() {
     cell.innerHTML = '<div class="notes"></div>';
     cell.className = 'cell';
     if (state.fixed[i]) cell.classList.add('fixed');
-    if (val !== 0) { cell.textContent = val; }
-    else if (noteSet && noteSet.size > 0) {
+
+    if (val !== 0) {
+      cell.textContent = val;
+    } else if (noteSet && noteSet.size > 0) {
       const ne = cell.querySelector('.notes');
       for (let n = 1; n <= 9; n++) { const sp = document.createElement('span'); sp.textContent = noteSet.has(n) ? n : ''; ne.appendChild(sp); }
     }
+
+    // Persistent error / correct highlighting
+    if (!state.fixed[i] && val !== 0 && state.solution.length === 81) {
+      if (val !== state.solution[i]) cell.classList.add('error');
+      else cell.classList.add('correct');
+    }
+
     if (state.selected !== null) {
       if (i === state.selected) { cell.classList.add('selected'); }
       else {
@@ -155,24 +188,27 @@ function renderBoard() {
 
 function selectCell(idx) { if (state.solved) return; state.selected = idx; renderBoard(); }
 
+/* ═══ Input ═══ */
 function placeNumber(n) {
   if (state.selected === null || state.solved) return;
   const idx = state.selected;
   if (state.fixed[idx]) return;
   pushHistory();
+
   if (state.notesMode) {
     const ns = state.notes[idx];
-    ns.has(n) ? ns.delete(n) : ns.add(n);
+    if (n === 0) { ns.clear(); }
+    else { ns.has(n) ? ns.delete(n) : ns.add(n); }
     state.userGrid[idx] = 0;
   } else {
     state.notes[idx].clear();
     state.userGrid[idx] = n;
-    const cell = board.children[idx];
-    cell.classList.remove('error', 'correct');
-    if (n !== 0 && n !== state.solution[idx]) { state.errors++; cell.classList.add('error'); updateErrors(); }
-    else if (n !== 0) { cell.classList.add('correct'); }
+    if (n !== 0 && n !== state.solution[idx]) { state.errors++; updateErrors(); }
   }
-  renderBoard(); save(); checkWin();
+
+  renderBoard();
+  save();
+  checkWin();
 }
 
 function updateErrors() { errorsEl.textContent = state.errors; }
@@ -187,6 +223,7 @@ function showWinScreen() {
   $('playAgain').addEventListener('click', () => { ov.remove(); showDifficultyPicker(); });
 }
 
+/* ═══ Game flow ═══ */
 function showDifficultyPicker() { diffRow.style.display = 'flex'; gameInfoEl.style.display = 'none'; stopTimer(); statusEl.textContent = ''; state.selected = null; state.solved = false; state.errors = 0; updateErrors(); clearBoard(); }
 
 function startGame(diff) {
@@ -196,18 +233,17 @@ function startGame(diff) {
   state.history = []; state.historyIndex = -1; state.selected = null; state.solved = false; state.errors = 0;
   pushHistory();
   diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; errorsEl.textContent = '0'; statusEl.textContent = '';
-  buildBoardDOM();
-  // Ensure row/col attributes are set before first render
-  for (let i = 0; i < 81; i++) board.children[i].dataset.row = Math.floor(i / 9), board.children[i].dataset.col = i % 9;
-  renderBoard(); startTimer(); save();
+  buildBoardDOM(); renderBoard(); startTimer(); save();
 }
 
 function clearBoard() { board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
 
+/* ═══ Storage ═══ */
 const STORAGE_KEY = 'sudoku_v1';
 function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ solution: state.solution, puzzle: state.puzzle, userGrid: state.userGrid, notes: state.notes.map(s => [...s]), fixed: state.fixed, difficulty: state.difficulty, errors: state.errors, solved: state.solved, timerSeconds: state.timerSeconds, history: state.history.map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => [...s]), errors: h.errors })), historyIndex: state.historyIndex })); } catch (e) {} }
 function load() { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return false; const d = JSON.parse(raw); state.solution = d.solution; state.puzzle = d.puzzle; state.userGrid = d.userGrid; state.notes = d.notes.map(s => new Set(s)); state.fixed = d.fixed; state.difficulty = d.difficulty; state.errors = d.errors ?? 0; state.solved = d.solved; state.timerSeconds = d.timerSeconds ?? 0; state.history = (d.history ?? []).map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => new Set(s)), errors: h.errors })); state.historyIndex = d.historyIndex ?? -1; return true; } catch (e) { return false; } }
 
+/* ═══ Keyboard ═══ */
 document.addEventListener('keydown', e => {
   if (state.selected === null || state.solved) return;
   const n = parseInt(e.key, 10);
@@ -230,5 +266,5 @@ document.querySelectorAll('.num-btn').forEach(btn => { btn.addEventListener('cli
 document.querySelectorAll('.btn--diff').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.btn--diff').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.difficulty = btn.dataset.diff; }); });
 $('difficultyRow').querySelector('.btn--start').addEventListener('click', () => { startGame(state.difficulty); });
 
-function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); for (let i = 0; i < 81; i++) board.children[i].dataset.row = Math.floor(i / 9), board.children[i].dataset.col = i % 9; renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(); } else { clearBoard(); } }
+function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(); } else { clearBoard(); } }
 init();
