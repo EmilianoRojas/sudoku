@@ -181,7 +181,10 @@ function startGame(diff) {
   state.history = []; state.historyIndex = -1; state.selected = null; state.solved = false; state.errors = 0;
   pushHistory();
   diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; errorsEl.textContent = '0'; statusEl.textContent = '';
-  buildBoardDOM(); renderBoard(); startTimer(); save();
+  buildBoardDOM();
+  // Ensure row/col attributes are set before first render
+  for (let i = 0; i < 81; i++) board.children[i].dataset.row = Math.floor(i / 9), board.children[i].dataset.col = i % 9;
+  renderBoard(); startTimer(); save();
 }
 
 function clearBoard() { board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
@@ -212,5 +215,5 @@ document.querySelectorAll('.num-btn').forEach(btn => { btn.addEventListener('cli
 document.querySelectorAll('.btn--diff').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.btn--diff').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.difficulty = btn.dataset.diff; }); });
 $('difficultyRow').querySelector('.btn--start').addEventListener('click', () => { startGame(state.difficulty); });
 
-function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(); } else { clearBoard(); } }
+function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); for (let i = 0; i < 81; i++) board.children[i].dataset.row = Math.floor(i / 9), board.children[i].dataset.col = i % 9; renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(); } else { clearBoard(); } }
 init();
