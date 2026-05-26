@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Sudoku</h1>
+      <div class="controls">
+        <button id="newGameBtn" class="btn">New Game</button>
+        <button id="undoBtn" class="btn btn--ghost">Undo</button>
+        <button id="redoBtn" class="btn btn--ghost">Redo</button>
+        <button id="notesBtn" class="btn btn--ghost">Notes</button>
+      </div>
+    </header>
+
+    <div class="difficulty-row" id="difficultyRow" style="display:none">
+      <span>Difficulty:</span>
+      <button class="btn btn--diff active" data-diff="easy">Easy</button>
+      <button class="btn btn--diff" data-diff="medium">Medium</button>
+      <button class="btn btn--diff" data-diff="hard">Hard</button>
+      <button class="btn btn--diff" data-diff="evil">Evil</button>
+      <button class="btn btn--start">Start</button>
+    </div>
+
+    <div class="game-info" id="gameInfo">
+      <span id="timer">00:00</span>
+      <span id="statusMsg"></span>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="numpad" id="numpad">
+      <button class="num-btn" data-n="1">1</button>
+      <button class="num-btn" data-n="2">2</button>
+      <button class="num-btn" data-n="3">3</button>
+      <button class="num-btn" data-n="4">4</button>
+      <button class="num-btn" data-n="5">5</button>
+      <button class="num-btn" data-n="6">6</button>
+      <button class="num-btn" data-n="7">7</button>
+      <button class="num-btn" data-n="8">8</button>
+      <button class="num-btn" data-n="9">9</button>
+      <button class="num-btn num-btn--clear" data-n="0">✕</button>
+    </div>
+
+    <div class="footer">
+      <span id="errors">Errors: <b id="errorCount">0</b></span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
