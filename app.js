@@ -124,7 +124,7 @@ function generate(diff) {
 }
 
 /* ═══ Timer ═══ */
-function startTimer() { stopTimer(); state.timerSeconds = 0; updateTimerDisplay(); state.timerInterval = setInterval(() => { state.timerSeconds++; updateTimerDisplay(); save(); }, 1000); }
+function startTimer(reset = true) { stopTimer(); if (reset) state.timerSeconds = 0; updateTimerDisplay(); state.timerInterval = setInterval(() => { state.timerSeconds++; updateTimerDisplay(); save(); }, 1000); }
 function stopTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 function updateTimerDisplay() { const s = state.timerSeconds; timerEl.textContent = String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0'); }
 
@@ -193,6 +193,9 @@ function placeNumber(n) {
   if (state.selected === null || state.solved) return;
   const idx = state.selected;
   if (state.fixed[idx]) return;
+  if (state.notesMode && state.userGrid[idx] !== 0) return;
+  if (!state.notesMode && state.userGrid[idx] === n) return;
+
   pushHistory();
 
   if (state.notesMode) {
@@ -233,7 +236,7 @@ function startGame(diff) {
   state.history = []; state.historyIndex = -1; state.selected = null; state.solved = false; state.errors = 0;
   pushHistory();
   diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; errorsEl.textContent = '0'; statusEl.textContent = '';
-  buildBoardDOM(); renderBoard(); startTimer(); save();
+  buildBoardDOM(); renderBoard(); startTimer(false); save();
 }
 
 function clearBoard() { board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
@@ -266,5 +269,5 @@ document.querySelectorAll('.num-btn').forEach(btn => { btn.addEventListener('cli
 document.querySelectorAll('.btn--diff').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.btn--diff').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.difficulty = btn.dataset.diff; }); });
 $('difficultyRow').querySelector('.btn--start').addEventListener('click', () => { startGame(state.difficulty); });
 
-function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(); } else { clearBoard(); } }
+function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(false); } else { clearBoard(); } }
 init();
