@@ -155,28 +155,17 @@ h1 {
 #statusMsg { font-weight: 500; }
 
 /* ── Board ── */
-.board {
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  grid-template-rows: repeat(9, 1fr);
-  width: 100%;
-  aspect-ratio: 1;
+.board-wrap {
   border: 2.5px solid var(--border-bold);
   border-radius: 8px;
   overflow: hidden;
-  background:
-    /* vertical box dividers */
-    linear-gradient(to right, var(--border-bold) 1px, transparent 1px),
-    /* horizontal box dividers */
-    linear-gradient(to bottom, var(--border-bold) 1px, transparent 1px),
-    var(--cell-bg);
-  background-size:
-    calc(100% / 3) 100%,
-    100% calc(100% / 3),
-    100% 100%;
-  background-position:
-    calc(100% / 3) 0, 0 calc(100% / 3),
-    0 0;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--cell-bg);
   touch-action: manipulation;
 }
 
@@ -223,9 +212,33 @@ h1 {
   background: var(--cell-correct-bg) !important;
 }
 
-/* 3×3 box borders - handled by board background now */
-.cell[data-col="2"], .cell[data-col="5"] { border-right: none; }
-.cell[data-row="2"], .cell[data-row="5"] { border-bottom: none; }
+/* 3×3 box borders — thick lines between box groups */
+.cell {
+  background: var(--cell-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.1rem, 5vw, 1.6rem);
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  transition: background 0.08s;
+  -webkit-tap-highlight-color: transparent;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left: none;
+  border-top: none;
+  box-sizing: border-box;
+}
+
+/* Thicker vertical dividers — between col 2-3 and 5-6 */
+.cell[data-col="2"] { border-right: 3px solid var(--border-bold); }
+.cell[data-col="5"] { border-right: 3px solid var(--border-bold); }
+
+/* Thicker horizontal dividers — between row 2-3 and 5-6 */
+.cell[data-row="2"] { border-bottom: 3px solid var(--border-bold); }
+.cell[data-row="5"] { border-bottom: 3px solid var(--border-bold); }
 
 /* ── Pencil notes ── */
 .cell .notes {
