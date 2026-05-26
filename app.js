@@ -15,14 +15,27 @@ function candidates(g, i) {
   return [1,2,3,4,5,6,7,8,9].filter(n => !used.has(n));
 }
 
+function findBestEmptyCell(g) {
+  let best = -1, bestCand = null;
+  for (let i = 0; i < 81; i++) {
+    if (g[i] !== 0) continue;
+    const cand = candidates(g, i);
+    if (!cand.length) return { idx: i, cand: [] };
+    if (!bestCand || cand.length < bestCand.length) { best = i; bestCand = cand; }
+    if (cand.length === 1) break;
+  }
+  return { idx: best, cand: bestCand || [] };
+}
+
 function countSol(g, limit) {
-  const i = g.indexOf(0);
-  if (i === -1) return 1;
+  const { idx, cand } = findBestEmptyCell(g);
+  if (idx === -1) return 1;
+  if (!cand.length) return 0;
   let count = 0;
-  for (const n of candidates(g, i)) {
-    g[i] = n;
+  for (const n of cand) {
+    g[idx] = n;
     count += countSol(g, limit - count);
-    g[i] = 0;
+    g[idx] = 0;
     if (count >= limit) break;
   }
   return count;
@@ -83,7 +96,7 @@ function generate(diff) {
     const bak = puzzle[i];
     puzzle[i] = 0;
     const copy = [...puzzle];
-    if (!copy.includes(0) || countSol(copy, 1) === 1) { removed++; } else { puzzle[i] = bak; }
+    if (!copy.includes(0) || countSol(copy, 2) === 1) { removed++; } else { puzzle[i] = bak; }
   }
 
   return { solution, puzzle };
