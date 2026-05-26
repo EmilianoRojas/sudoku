@@ -5,7 +5,7 @@ const newGameBtn = $('newGameBtn'), undoBtn = $('undoBtn'), redoBtn = $('redoBtn
 const diffRow = $('difficultyRow'), gameInfoEl = $('gameInfo');
 const state = { solution:[], puzzle:[], userGrid:[], notes:[], fixed:[], history:[], historyIndex:-1, selected:null, notesMode:false, difficulty:'medium', errors:0, solved:false, timerSeconds:0, timerInterval:null };
 
-const TEMPLATE = '534678912672195348198342567859761423426853791713924856961537284287146935348219675';
+const TEMPLATE = '817642359325179468649853721572438196934516287168927543756384912483291675291765834';
 
 function candidates(g, i) {
   const r = Math.floor(i / 9), c = i % 9, br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
@@ -51,13 +51,15 @@ function generate(diff) {
     for (let k = 0; k < 27; k++) sol[b * 27 + k] = reordered[k];
   }
 
-  // Shuffle stacks
+  // Shuffle stacks - ONE perm for the whole stack applied to all rows
   for (let st = 0; st < 3; st++) {
+    const perm = fisherYates([0, 1, 2], rng);
     for (let r = 0; r < 9; r++) {
       const col0 = st * 3;
-      const vals = [sol[r * 9 + col0], sol[r * 9 + col0 + 1], sol[r * 9 + col0 + 2]];
-      fisherYates(vals, rng);
-      sol[r * 9 + col0] = vals[0]; sol[r * 9 + col0 + 1] = vals[1]; sol[r * 9 + col0 + 2] = vals[2];
+      const v0 = sol[r * 9 + col0], v1 = sol[r * 9 + col0 + 1], v2 = sol[r * 9 + col0 + 2];
+      sol[r * 9 + col0] = [v0, v1, v2][perm[0]];
+      sol[r * 9 + col0 + 1] = [v0, v1, v2][perm[1]];
+      sol[r * 9 + col0 + 2] = [v0, v1, v2][perm[2]];
     }
   }
 
