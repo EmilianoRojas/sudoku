@@ -15,6 +15,7 @@
         <button id="undoBtn" class="btn btn--ghost">Undo</button>
         <button id="redoBtn" class="btn btn--ghost">Redo</button>
         <button id="notesBtn" class="btn btn--ghost">Notes</button>
+        <button id="handwritingBtn" class="btn btn--ghost" aria-pressed="false">Handwriting: Off</button>
         <button id="mistakesBtn" class="btn btn--ghost" aria-pressed="true">Mistakes: On</button>
       </div>
     </header>
@@ -38,6 +39,7 @@
       <div class="board" id="board"></div>
     </div>
 
+    <div id="handwritingPrompt" class="handwriting-prompt" aria-live="polite" hidden></div>
     <div class="numpad" id="numpad">
       <button class="num-btn" data-n="1">1</button>
       <button class="num-btn" data-n="2">2</button>
@@ -56,6 +58,7 @@
     </div>
   </div>
 
+  <script src="handwriting.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

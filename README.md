@@ -9,6 +9,10 @@ A dependency-free browser Sudoku game. Open `index.html` in a modern browser to 
 - Notes automatically clear from peers after a correct placement. Mistake highlighting is optional; toggle with **Mistakes: On/Off**. Errors are still counted when a wrong number is entered.
 - Game state persists in browser localStorage; the timer resumes when reopening the page.
 
+## Stylus handwriting
+
+Turn on **Handwriting** and write a large digit inside an editable square with a pen. A short pause after lifting the pen allows multiple strokes. Clearly recognized digits are entered automatically; ambiguous strokes show a 1–9 correction strip so they are not counted as player mistakes. Tap a cell and use the on-screen numpad if recognition is inaccurate. The recognizer is a lightweight offline template matcher, not a trained handwriting model; handwriting varies, so it is important to test with actual tablet pens. Touch and mouse retain ordinary selection behavior.
+
 ## Development
 
 No dependencies or build step. Run `node --test tests/*.test.cjs` (Node.js 18+). A GitHub Actions workflow runs tests on pushes and pull requests.
