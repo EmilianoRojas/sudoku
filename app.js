@@ -173,8 +173,8 @@ function pushHistory() {
   if (state.history.length > 500) { state.history.shift(); state.historyIndex--; }
 }
 
-function undo() { if (state.historyIndex <= 0) return; state.historyIndex--; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
-function redo() { if (state.historyIndex >= state.history.length - 1) return; state.historyIndex++; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
+function undo() { cancelRecognition(); if (state.historyIndex <= 0) return; state.historyIndex--; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
+function redo() { cancelRecognition(); if (state.historyIndex >= state.history.length - 1) return; state.historyIndex++; const h = state.history[state.historyIndex]; state.userGrid = [...h.userGrid]; state.notes = h.notes.map(s => new Set(s)); state.errors = h.errors; renderBoard(); updateErrors(); save(); }
 
 /* ═══ Board ═══ */
 function buildBoardDOM() {
@@ -187,6 +187,7 @@ function buildBoardDOM() {
     cell.dataset.col = i % 9;
     cell.innerHTML = '<div class="notes"></div>';
     cell.addEventListener('click', () => selectCell(i));
+    bindHandwriting(cell, i);
     board.appendChild(cell);
   }
 }
@@ -277,9 +278,10 @@ function showWinScreen() {
 }
 
 /* ═══ Game flow ═══ */
-function showDifficultyPicker() { diffRow.style.display = 'flex'; gameInfoEl.style.display = 'none'; stopTimer(); statusEl.textContent = ''; state.selected = null; state.solved = false; state.errors = 0; updateErrors(); clearBoard(); }
+function showDifficultyPicker() { cancelRecognition(); diffRow.style.display = 'flex'; gameInfoEl.style.display = 'none'; stopTimer(); statusEl.textContent = ''; state.selected = null; state.solved = false; state.errors = 0; updateErrors(); clearBoard(); }
 
 function startGame(diff) {
+  cancelRecognition();
   const { solution, puzzle, rating } = generate(diff);
   state.solution = solution; state.puzzle = puzzle; state.userGrid = [...puzzle];
   state.rating = rating;
