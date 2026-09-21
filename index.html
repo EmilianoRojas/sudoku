@@ -15,6 +15,7 @@
         <button id="undoBtn" class="btn btn--ghost">Undo</button>
         <button id="redoBtn" class="btn btn--ghost">Redo</button>
         <button id="notesBtn" class="btn btn--ghost">Notes</button>
+        <button id="mistakesBtn" class="btn btn--ghost" aria-pressed="true">Mistakes: On</button>
       </div>
     </header>
 
@@ -29,7 +30,8 @@
 
     <div class="game-info" id="gameInfo">
       <span id="timer">00:00</span>
-      <span id="statusMsg"></span>
+      <span id="rating" aria-label="Puzzle logic rating"></span>
+      <span id="statusMsg" role="status"></span>
     </div>
 
     <div class="board-wrap">

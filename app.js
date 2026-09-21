@@ -8,6 +8,8 @@ const state = { solution:[], puzzle:[], userGrid:[], notes:[], fixed:[], history
 const TEMPLATE = '817642359325179468649853721572438196934516287168927543756384912483291675291765834';
 const DIFFICULTY_CLUES = { easy: 42, medium: 34, hard: 28, evil: 22 };
 const MAX_GENERATION_ATTEMPTS = 10;
+const VALIDATION_KEY = 'sudoku_show_mistakes';
+let showMistakes = localStorage.getItem(VALIDATION_KEY) !== 'false';
 
 /* ═══ Helper ═══ */
 function fisherYates(arr, rng) {
@@ -17,7 +19,7 @@ function fisherYates(arr, rng) {
 
 function makeRng(seed) {
   let s = (seed ^ 0xdeadbeef) >>> 0;
-  return () => { s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; return (s >>> 0) / 0xffffffff; };
+  return () => { s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0; return (s >>> 0) / 0x100000000; };
 }
 
 /* ═══ Candidates / MRV solver ═══ */
@@ -42,6 +44,7 @@ function findBestEmptyCell(g) {
 }
 
 function countSol(g, limit) {
+  if (limit <= 0) return 0;
   const { idx, cand } = findBestEmptyCell(g);
   if (idx === -1) return 1;
   if (!cand.length) return 0;
@@ -53,6 +56,40 @@ function countSol(g, limit) {
     if (count >= limit) break;
   }
   return count;
+}
+
+/* Human-style rating: apply naked and hidden singles before considering guesses.
+   A clue count alone is not a difficulty measurement. */
+function ratePuzzle(puzzle) {
+  const g = [...puzzle];
+  let hidden = 0;
+  for (;;) {
+    let progress = false;
+    for (let i = 0; i < 81; i++) {
+      if (g[i] !== 0) continue;
+      const choices = candidates(g, i);
+      if (!choices.length) return 'invalid';
+      if (choices.length === 1) { g[i] = choices[0]; progress = true; }
+    }
+    if (progress) continue;
+    const units = [];
+    for (let k = 0; k < 9; k++) {
+      units.push(Array.from({ length: 9 }, (_, j) => k * 9 + j));
+      units.push(Array.from({ length: 9 }, (_, j) => j * 9 + k));
+    }
+    for (let br = 0; br < 9; br += 3) for (let bc = 0; bc < 9; bc += 3)
+      units.push(Array.from({ length: 9 }, (_, j) => (br + Math.floor(j / 3)) * 9 + bc + j % 3));
+    outer: for (const unit of units) for (let n = 1; n <= 9; n++) {
+      if (unit.some(i => g[i] === n)) continue;
+      const spots = unit.filter(i => g[i] === 0 && candidates(g, i).includes(n));
+      if (spots.length === 1) { g[spots[0]] = n; hidden++; progress = true; break outer; }
+    }
+    if (!progress) break;
+  }
+  if (g.every(v => v !== 0)) return hidden ? 'medium' : 'easy';
+  // Remaining cells need techniques beyond singles; do not claim a precise
+  // hard/evil technique rating without implementing a full logical solver.
+  return 'advanced';
 }
 
 /* ═══ Grid builder ═══ */
@@ -107,7 +144,7 @@ function generateAttempt(diff, seed) {
     }
   }
 
-  return { solution, puzzle, clues: puzzle.filter(v => v !== 0).length, target };
+  return { solution, puzzle, clues: puzzle.filter(v => v !== 0).length, target, rating: ratePuzzle(puzzle) };
 }
 
 function generate(diff) {
@@ -116,11 +153,11 @@ function generate(diff) {
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
     const candidate = generateAttempt(diff, baseSeed + attempt * 9973);
     if (!best || candidate.clues < best.clues) best = candidate;
-    if (candidate.clues <= candidate.target) {
-      return { solution: candidate.solution, puzzle: candidate.puzzle };
+    if (candidate.clues <= candidate.target && (diff !== 'easy' || candidate.rating === 'easy') && (diff !== 'medium' || candidate.rating !== 'advanced')) {
+      return { solution: candidate.solution, puzzle: candidate.puzzle, rating: candidate.rating };
     }
   }
-  return { solution: best.solution, puzzle: best.puzzle };
+  return { solution: best.solution, puzzle: best.puzzle, rating: best.rating };
 }
 
 /* ═══ Timer ═══ */
@@ -170,7 +207,7 @@ function renderBoard() {
     }
 
     // Persistent error / correct highlighting
-    if (!state.fixed[i] && val !== 0 && state.solution.length === 81) {
+    if (showMistakes && !state.fixed[i] && val !== 0 && state.solution.length === 81) {
       if (val !== state.solution[i]) cell.classList.add('error');
       else cell.classList.add('correct');
     }
@@ -188,6 +225,19 @@ function renderBoard() {
 
 function selectCell(idx) { if (state.solved) return; state.selected = idx; renderBoard(); }
 
+/* Remove obsolete pencil marks in peers of an accepted placement. */
+function cleanPeerNotes(idx, n) {
+  if (!n || n !== state.solution[idx]) return;
+  const r = Math.floor(idx / 9), c = idx % 9;
+  for (let j = 0; j < 81; j++) {
+    const jr = Math.floor(j / 9), jc = j % 9;
+    if (j !== idx && (jr === r || jc === c ||
+      (Math.floor(jr / 3) === Math.floor(r / 3) && Math.floor(jc / 3) === Math.floor(c / 3)))) {
+      state.notes[j].delete(n);
+    }
+  }
+}
+
 /* ═══ Input ═══ */
 function placeNumber(n) {
   if (state.selected === null || state.solved) return;
@@ -195,8 +245,6 @@ function placeNumber(n) {
   if (state.fixed[idx]) return;
   if (state.notesMode && state.userGrid[idx] !== 0) return;
   if (!state.notesMode && state.userGrid[idx] === n) return;
-
-  pushHistory();
 
   if (state.notesMode) {
     const ns = state.notes[idx];
@@ -206,9 +254,11 @@ function placeNumber(n) {
   } else {
     state.notes[idx].clear();
     state.userGrid[idx] = n;
+    cleanPeerNotes(idx, n);
     if (n !== 0 && n !== state.solution[idx]) { state.errors++; updateErrors(); }
   }
 
+  pushHistory();
   renderBoard();
   save();
   checkWin();
@@ -230,21 +280,26 @@ function showWinScreen() {
 function showDifficultyPicker() { diffRow.style.display = 'flex'; gameInfoEl.style.display = 'none'; stopTimer(); statusEl.textContent = ''; state.selected = null; state.solved = false; state.errors = 0; updateErrors(); clearBoard(); }
 
 function startGame(diff) {
-  const { solution, puzzle } = generate(diff);
+  const { solution, puzzle, rating } = generate(diff);
   state.solution = solution; state.puzzle = puzzle; state.userGrid = [...puzzle];
+  state.rating = rating;
   state.fixed = puzzle.map(v => v !== 0); state.notes = Array.from({ length: 81 }, () => new Set());
   state.history = []; state.historyIndex = -1; state.selected = null; state.solved = false; state.errors = 0;
   pushHistory();
   diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; errorsEl.textContent = '0'; statusEl.textContent = '';
-  buildBoardDOM(); renderBoard(); startTimer(false); save();
+  buildBoardDOM(); renderBoard(); startTimer(true); updateRating(); save();
 }
 
+function updateRating() {
+  const rating = state.rating || ratePuzzle(state.puzzle);
+  $('rating').textContent = 'Logic: ' + (rating === 'advanced' ? 'Advanced' : rating === 'medium' ? 'Hidden singles' : 'Singles');
+}
 function clearBoard() { board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
 
 /* ═══ Storage ═══ */
 const STORAGE_KEY = 'sudoku_v1';
-function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ solution: state.solution, puzzle: state.puzzle, userGrid: state.userGrid, notes: state.notes.map(s => [...s]), fixed: state.fixed, difficulty: state.difficulty, errors: state.errors, solved: state.solved, timerSeconds: state.timerSeconds, history: state.history.map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => [...s]), errors: h.errors })), historyIndex: state.historyIndex })); } catch (e) {} }
-function load() { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return false; const d = JSON.parse(raw); state.solution = d.solution; state.puzzle = d.puzzle; state.userGrid = d.userGrid; state.notes = d.notes.map(s => new Set(s)); state.fixed = d.fixed; state.difficulty = d.difficulty; state.errors = d.errors ?? 0; state.solved = d.solved; state.timerSeconds = d.timerSeconds ?? 0; state.history = (d.history ?? []).map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => new Set(s)), errors: h.errors })); state.historyIndex = d.historyIndex ?? -1; return true; } catch (e) { return false; } }
+function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ solution: state.solution, puzzle: state.puzzle, userGrid: state.userGrid, notes: state.notes.map(s => [...s]), fixed: state.fixed, difficulty: state.difficulty, rating: state.rating, errors: state.errors, solved: state.solved, timerSeconds: state.timerSeconds, history: state.history.map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => [...s]), errors: h.errors })), historyIndex: state.historyIndex })); } catch (e) {} }
+function load() { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return false; const d = JSON.parse(raw); state.solution = d.solution; state.puzzle = d.puzzle; state.userGrid = d.userGrid; state.notes = d.notes.map(s => new Set(s)); state.fixed = d.fixed; state.difficulty = d.difficulty; state.rating = d.rating || ratePuzzle(d.puzzle); state.errors = d.errors ?? 0; state.solved = d.solved; state.timerSeconds = d.timerSeconds ?? 0; state.history = (d.history ?? []).map(h => ({ userGrid: h.userGrid, notes: h.notes.map(s => new Set(s)), errors: h.errors })); state.historyIndex = d.historyIndex ?? -1; return true; } catch (e) { return false; } }
 
 /* ═══ Keyboard ═══ */
 document.addEventListener('keydown', e => {
@@ -262,6 +317,17 @@ document.addEventListener('keydown', e => {
 });
 
 newGameBtn.addEventListener('click', showDifficultyPicker);
+$('mistakesBtn').addEventListener('click', () => {
+  showMistakes = !showMistakes;
+  localStorage.setItem(VALIDATION_KEY, String(showMistakes));
+  updateMistakesButton();
+  renderBoard();
+});
+function updateMistakesButton() {
+  $('mistakesBtn').textContent = 'Mistakes: ' + (showMistakes ? 'On' : 'Off');
+  $('mistakesBtn').setAttribute('aria-pressed', String(showMistakes));
+}
+updateMistakesButton();
 undoBtn.addEventListener('click', undo);
 redoBtn.addEventListener('click', redo);
 notesBtn.addEventListener('click', () => { state.notesMode = !state.notesMode; document.body.classList.toggle('notes-active', state.notesMode); });
@@ -269,5 +335,5 @@ document.querySelectorAll('.num-btn').forEach(btn => { btn.addEventListener('cli
 document.querySelectorAll('.btn--diff').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.btn--diff').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.difficulty = btn.dataset.diff; }); });
 $('difficultyRow').querySelector('.btn--start').addEventListener('click', () => { startGame(state.difficulty); });
 
-function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateTimerDisplay(); startTimer(false); } else { clearBoard(); } }
+function init() { if (load() && !state.solved && state.solution.length === 81) { diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; buildBoardDOM(); renderBoard(); updateErrors(); updateRating(); updateTimerDisplay(); startTimer(false); } else { clearBoard(); } }
 init();
