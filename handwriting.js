@@ -5,7 +5,7 @@ const DIGIT_TEMPLATES = {
   1: [[[45,8],[55,6],[55,92]], [[25,28],[54,7],[54,92]]],
   2: [[[16,26],[28,9],[70,9],[84,25],[77,45],[17,92],[86,92]]],
   3: [[[17,15],[42,6],[77,13],[81,32],[52,50],[78,62],[79,83],[49,94],[17,83]]],
-  4: [[[70,6],[17,67],[89,67]],[[71,7],[71,94]]],
+  4: [[[[70,6],[17,67],[89,67]],[[71,7],[71,94]]]],
   5: [[[80,9],[21,9],[19,49],[59,45],[83,62],[78,85],[51,94],[16,83]]],
   6: [[[76,9],[37,23],[17,57],[24,83],[53,94],[79,78],[75,57],[47,49],[19,64]]],
   7: [[[14,11],[86,11],[42,93]]],
@@ -55,7 +55,7 @@ function recognizeDigit(strokes) {
     digit:Number(digit),
     score:Math.min(...variants.map(template=>distance(ink,normalizedPoints(
       // Four uses two strokes; other variants represent alternate forms.
-      digit==='4' ? [template] : [template]
+      digit==='4' ? template : [template]
     ))))
   })).sort((a,b)=>a.score-b.score);
   return { digit:scores[0].digit, score:scores[0].score, gap:scores[1].score-scores[0].score };
@@ -106,6 +106,7 @@ function initializeInkCanvas() {
   handwriting.canvas=canvas;
 }
 function showCandidates(guess) {
+  handwriting.candidate=guess || {digit:null};
   const prompt=handwritingPrompt;
   prompt.replaceChildren();
   prompt.hidden=false;
