@@ -192,6 +192,21 @@ function buildBoardDOM() {
   }
 }
 
+function updateProgress() {
+  const label = $('progressLabel'), track = $('progressTrack'), fill = $('progressFill');
+  if (!state.solution.length || !state.fixed.length) {
+    label.textContent = 'Choose a difficulty to begin';
+    track.setAttribute('aria-valuenow', '0');
+    fill.style.width = '0%';
+    return;
+  }
+  const total = state.fixed.filter(v => !v).length;
+  const correct = state.userGrid.filter((v,i) => !state.fixed[i] && v === state.solution[i]).length;
+  const percent = total ? Math.round(correct / total * 100) : 100;
+  label.textContent = correct + ' of ' + total + ' squares solved';
+  track.setAttribute('aria-valuenow', String(percent));
+  fill.style.width = percent + '%';
+}
 function renderBoard() {
   for (let i = 0; i < 81; i++) {
     const cell = board.children[i];
@@ -222,6 +237,7 @@ function renderBoard() {
       }
     }
   }
+  updateProgress();
 }
 
 function selectCell(idx) { if (state.solved) return; state.selected = idx; renderBoard(); }
@@ -287,6 +303,7 @@ function startGame(diff) {
   state.rating = rating;
   state.fixed = puzzle.map(v => v !== 0); state.notes = Array.from({ length: 81 }, () => new Set());
   state.history = []; state.historyIndex = -1; state.selected = null; state.solved = false; state.errors = 0;
+  board.classList.toggle('handwriting-active', handwriting.enabled);
   pushHistory();
   diffRow.style.display = 'none'; gameInfoEl.style.display = 'flex'; errorsEl.textContent = '0'; statusEl.textContent = '';
   buildBoardDOM(); renderBoard(); startTimer(true); updateRating(); save();
@@ -296,7 +313,7 @@ function updateRating() {
   const rating = state.rating || ratePuzzle(state.puzzle);
   $('rating').textContent = 'Logic: ' + (rating === 'advanced' ? 'Advanced' : rating === 'medium' ? 'Hidden singles' : 'Singles');
 }
-function clearBoard() { board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
+function clearBoard() { updateProgress(); board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
 
 /* ═══ Storage ═══ */
 const STORAGE_KEY = 'sudoku_v1';
