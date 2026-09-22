@@ -27,3 +27,24 @@ test('recognizer does not depend on network or ML downloads',()=>{
   const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
   assert.doesNotMatch(script,/fetch\(|XMLHttpRequest|import\(/);
 });
+
+test('ordered stroke matching distinguishes 5 and 6 from 8 templates',()=>{
+  const run=load();
+  for (const digit of [5,6,8]) {
+    const result=run(`recognizeDigit([DIGIT_TEMPLATES[${digit}][0]])`);
+    assert.equal(result.digit,digit);
+    // Affine changes should not affect centered normalized recognition.
+    const transformed=run(`recognizeDigit([DIGIT_TEMPLATES[${digit}][0].map(([x,y])=>[2*x+18,2*y-11])])`);
+    assert.equal(transformed.digit,digit);
+  }
+});
+test('5, 6, and 8 require confirmation rather than automatic entry',()=>{
+  const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
+  assert.match(script,/!\[5,6,8\]\.includes\(guess\.digit\)/);
+});
+test('writing highlights immediately, without re-rendering the board',()=>{
+  const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
+  const start=script.slice(script.indexOf('function startInk'),script.indexOf('function moveInk'));
+  assert.match(start,/classList\.add\('selected','writing'\)/);
+  assert.doesNotMatch(start,/renderBoard\(/);
+});
