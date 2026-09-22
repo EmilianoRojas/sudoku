@@ -4,47 +4,48 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const stub=()=>({addEventListener(){},setAttribute(){},replaceChildren(){},appendChild(){},classList:{add(){}},hidden:true});
-function load() {
-  const doc={getElementById:()=>stub()};
-  const ctx={document:doc,Math,Set,Array,JSON,clearTimeout(){}};
+function runModel() {
+  const ctx={atob,Float32Array,Math};
   vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8'),ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'..','digit-model.js'),'utf8'),ctx);
   return code=>vm.runInContext(code,ctx);
 }
-test('recognizes each of the nine template digit shapes',()=>{
-  const run=load();
-  for(let n=1;n<=9;n++) {
-    const got=run(`recognizeDigit(${n}===4 ? DIGIT_TEMPLATES[4][0] : [DIGIT_TEMPLATES[${n}][0]])?.digit`);
-    assert.equal(got,n,'digit '+n);
+test('model loads four correctly sized quantized parameter tensors',()=>{
+  const run=runModel();
+  assert.equal(run('DIGIT_MODEL_WEIGHTS.map(w=>w.length).join(",")'),'2048,32,320,10');
+});
+test('recognizes representative handwritten digits 1, 5, 6 and 8',()=>{
+  const run=runModel();
+  const fixtures={
+    1:'000cd500000bg900003fg60007fgg200001gg300001gg600001gg600000bga00',
+    5:'05cdgg200bgf840008eb100008gge0000166g0000005g300015fd00004fg2000',
+    6:'000cd000005g800000dg300000ed000000fc720000dgdg30007gbf800019fb30',
+    8:'009e810000ceec00009a0f40003gce20004gg20003g8ad2001f13g8000bgfb10'
+  };
+  for(const [expected,encoded] of Object.entries(fixtures)){
+    const pixels=[...encoded].map(ch=>parseInt(ch,17)/16);
+    assert.equal(run('classifyDigitPixels('+JSON.stringify(pixels)+')'),Number(expected));
   }
 });
-test('empty handwriting does not create a digit',()=>{
-  const run=load();
-  assert.equal(run('recognizeDigit([])'),null);
+test('Sudoku classifier never predicts zero',()=>{
+  const run=runModel();
+  const zeros=Array(64).fill(0);
+  const result=run('classifyDigitPixels('+JSON.stringify(zeros)+')');
+  assert.ok(result>=1 && result<=9);
 });
-test('recognizer does not depend on network or ML downloads',()=>{
-  const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
-  assert.doesNotMatch(script,/fetch\(|XMLHttpRequest|import\(/);
+test('blank or tiny pen strokes are ignored',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
+  assert.match(source,/if \(all\.length < 3\) return null/);
+  assert.match(source,/if \(Math\.max\(width,height\)<3\) return null/);
 });
-
-test('ordered stroke matching distinguishes 5 and 6 from 8 templates',()=>{
-  const run=load();
-  for (const digit of [5,6,8]) {
-    const result=run(`recognizeDigit([DIGIT_TEMPLATES[${digit}][0]])`);
-    assert.equal(result.digit,digit);
-    // Affine changes should not affect centered normalized recognition.
-    const transformed=run(`recognizeDigit([DIGIT_TEMPLATES[${digit}][0].map(([x,y])=>[2*x+18,2*y-11])])`);
-    assert.equal(transformed.digit,digit);
-  }
+test('no confirmation UI and handwriting commits directly',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
+  assert.doesNotMatch(source,/showCandidates|handwritingPrompt/);
+  assert.match(source,/if\(digit!==null\)acceptHandwriting\(digit\)/);
 });
-test('5, 6, and 8 require confirmation rather than automatic entry',()=>{
-  const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
-  assert.match(script,/!\[5,6,8\]\.includes\(guess\.digit\)/);
-});
-test('writing highlights immediately, without re-rendering the board',()=>{
-  const script=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
-  const start=script.slice(script.indexOf('function startInk'),script.indexOf('function moveInk'));
+test('active pen highlighting still avoids re-rendering',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','handwriting.js'),'utf8');
+  const start=source.slice(source.indexOf('function startInk'),source.indexOf('function moveInk'));
   assert.match(start,/classList\.add\('selected','writing'\)/);
   assert.doesNotMatch(start,/renderBoard\(/);
 });
