@@ -331,3 +331,21 @@ h1 {
 /* Disable browser scrolling/zoom gestures over the drawing surface only while
    handwriting is active, preventing pointercancel mid-stroke on tablets. */
 .board.handwriting-active, .board.handwriting-active .cell { touch-action: none; }
+
+/* Handwriting uses warm contrast against the purple ink. Applied synchronously
+   on pen-down without a full board render. */
+.board.handwriting-active .cell.writing,
+.board.handwriting-active .cell.selected.writing {
+  background: #fff0b3 !important;
+  color: #24212b !important;
+  outline: 2px solid #bd7800;
+  outline-offset: -3px;
+}
+@media (prefers-color-scheme: dark) {
+  .board.handwriting-active .cell.writing,
+  .board.handwriting-active .cell.selected.writing {
+    background: #473a21 !important;
+    color: #fff3cb !important;
+    outline-color: #ffcb6c;
+  }
+}
