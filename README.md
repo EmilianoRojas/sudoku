@@ -9,6 +9,10 @@ A dependency-free browser Sudoku game. Open `index.html` in a modern browser to 
 - Notes automatically clear from peers after a correct placement. Mistake highlighting is optional; toggle with **Mistakes: On/Off**. Errors are still counted when a wrong number is entered.
 - Game state persists in browser localStorage; the timer resumes when reopening the page.
 
+## Interface
+
+The layout adapts from a two-column desktop view to a compact tablet/phone layout. It groups number input, history, and input modes, uses a distinct amber handwriting target, and shows progress based on correctly completed editable squares (not simply filled squares). Dark mode follows your device's color scheme; reduced-motion preferences are respected.
+
 ## Stylus handwriting
 
 Turn on **Handwriting** and write a large digit inside an editable square with a pen. A short pause after lifting the pen allows multiple strokes. Clearly recognized digits are entered automatically; ambiguous strokes show a 1–9 correction strip so they are not counted as player mistakes. Tap a cell and use the on-screen numpad if recognition is inaccurate. The recognizer is a lightweight offline template matcher, not a trained handwriting model; handwriting varies, so it is important to test with actual tablet pens. Touch and mouse retain ordinary selection behavior.

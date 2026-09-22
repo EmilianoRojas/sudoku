@@ -3,61 +3,74 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sudoku</title>
+  <meta name="theme-color" content="#f5f4f0" />
+  <title>Sudoku — A moment of focus</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Sudoku</h1>
-      <div class="controls">
-        <button id="newGameBtn" class="btn">New Game</button>
-        <button id="undoBtn" class="btn btn--ghost">Undo</button>
-        <button id="redoBtn" class="btn btn--ghost">Redo</button>
-        <button id="notesBtn" class="btn btn--ghost">Notes</button>
-        <button id="handwritingBtn" class="btn btn--ghost" aria-pressed="false">Handwriting: Off</button>
-        <button id="mistakesBtn" class="btn btn--ghost" aria-pressed="true">Mistakes: On</button>
+  <main class="container">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <div><span class="eyebrow">YOUR DAILY PUZZLE</span><h1>Sudoku<span class="brand-dot">.</span></h1></div>
       </div>
+      <button id="newGameBtn" class="btn btn--primary">＋ New game</button>
     </header>
 
-    <div class="difficulty-row" id="difficultyRow" style="display:none">
-      <span>Difficulty:</span>
-      <button class="btn btn--diff active" data-diff="easy">Easy</button>
-      <button class="btn btn--diff" data-diff="medium">Medium</button>
-      <button class="btn btn--diff" data-diff="hard">Hard</button>
-      <button class="btn btn--diff" data-diff="evil">Evil</button>
-      <button class="btn btn--start">Start</button>
-    </div>
+    <section class="difficulty-row" id="difficultyRow" style="display:none" aria-label="New game settings">
+      <div class="section-heading"><span class="eyebrow">START FRESH</span><h2>Choose your challenge</h2></div>
+      <div class="difficulty-options" role="group" aria-label="Difficulty">
+        <button class="btn btn--diff active" data-diff="easy">Easy</button>
+        <button class="btn btn--diff" data-diff="medium">Medium</button>
+        <button class="btn btn--diff" data-diff="hard">Hard</button>
+        <button class="btn btn--diff" data-diff="evil">Evil</button>
+      </div>
+      <button class="btn btn--start">Start puzzle →</button>
+    </section>
 
-    <div class="game-info" id="gameInfo">
-      <span id="timer">00:00</span>
-      <span id="rating" aria-label="Puzzle logic rating"></span>
-      <span id="statusMsg" role="status"></span>
-    </div>
+    <div class="game-shell">
+      <section class="play-area" aria-label="Sudoku game">
+        <div class="game-info" id="gameInfo">
+          <div class="game-meta"><span class="eyebrow">TIME</span><span id="timer">00:00</span></div>
+          <div class="game-meta"><span class="eyebrow">DIFFICULTY</span><span id="rating" aria-label="Puzzle logic rating"></span></div>
+          <div class="game-meta"><span class="eyebrow">MISTAKES</span><span id="errors"><b id="errorCount">0</b></span></div>
+        </div>
+        <div class="board-card">
+          <div class="board-wrap"><div class="board" id="board" aria-label="9 by 9 Sudoku board"></div></div>
+        </div>
+        <div class="progress-row">
+          <span id="progressLabel">Choose a difficulty to begin</span>
+          <span id="statusMsg" role="status" aria-live="polite"></span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="Puzzle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressTrack"><div id="progressFill"></div></div>
+        <div id="handwritingPrompt" class="handwriting-prompt" aria-live="polite" hidden></div>
+      </section>
 
-    <div class="board-wrap">
-      <div class="board" id="board"></div>
+      <aside class="tool-panel" aria-label="Game controls">
+        <div class="tool-header"><span class="eyebrow">YOUR TOOLS</span><h2>Make your move</h2><p id="inputHint">Select an empty square, then choose a number.</p></div>
+        <div class="numpad" id="numpad" aria-label="Number input">
+          <button class="num-btn" data-n="1">1</button><button class="num-btn" data-n="2">2</button>
+          <button class="num-btn" data-n="3">3</button><button class="num-btn" data-n="4">4</button>
+          <button class="num-btn" data-n="5">5</button><button class="num-btn" data-n="6">6</button>
+          <button class="num-btn" data-n="7">7</button><button class="num-btn" data-n="8">8</button>
+          <button class="num-btn" data-n="9">9</button><button class="num-btn num-btn--clear" data-n="0" aria-label="Erase selected square">⌫</button>
+        </div>
+        <div class="action-row" aria-label="History controls">
+          <button id="undoBtn" class="btn btn--ghost">↶ Undo</button>
+          <button id="redoBtn" class="btn btn--ghost">↷ Redo</button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="setting-title"><span class="eyebrow">PLAY YOUR WAY</span><p>Switch modes at any time</p></div>
+        <div class="mode-controls">
+          <button id="notesBtn" class="btn btn--ghost" aria-pressed="false">✎ Pencil notes</button>
+          <button id="handwritingBtn" class="btn btn--ghost" aria-pressed="false">Handwriting: Off</button>
+          <button id="mistakesBtn" class="btn btn--ghost" aria-pressed="true">Mistakes: On</button>
+        </div>
+        <p class="help-text">Tip: Use arrow keys to navigate, N for notes, and Ctrl/Cmd + Z to undo.</p>
+      </aside>
     </div>
-
-    <div id="handwritingPrompt" class="handwriting-prompt" aria-live="polite" hidden></div>
-    <div class="numpad" id="numpad">
-      <button class="num-btn" data-n="1">1</button>
-      <button class="num-btn" data-n="2">2</button>
-      <button class="num-btn" data-n="3">3</button>
-      <button class="num-btn" data-n="4">4</button>
-      <button class="num-btn" data-n="5">5</button>
-      <button class="num-btn" data-n="6">6</button>
-      <button class="num-btn" data-n="7">7</button>
-      <button class="num-btn" data-n="8">8</button>
-      <button class="num-btn" data-n="9">9</button>
-      <button class="num-btn num-btn--clear" data-n="0">✕</button>
-    </div>
-
-    <div class="footer">
-      <span id="errors">Errors: <b id="errorCount">0</b></span>
-    </div>
-  </div>
-
+    <footer class="app-footer">A little focus, one square at a time.</footer>
+  </main>
   <script src="handwriting.js"></script>
   <script src="app.js"></script>
 </body>
