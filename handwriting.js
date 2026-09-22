@@ -40,7 +40,6 @@ function recognizeDigit(strokes) {
 }
 const handwriting = { enabled:false, selected:null, strokes:[], active:null, pointer:null, timeout:null, canvas:null, ctx:null, suppressClick:false };
 const handwritingBtn = document.getElementById('handwritingBtn');
-const handwritingPrompt = document.getElementById('handwritingPrompt');
 function clearInk() {
   clearTimeout(handwriting.timeout);
   handwriting.timeout=null;
