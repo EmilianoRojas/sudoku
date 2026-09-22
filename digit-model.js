@@ -20,8 +20,8 @@ function classifyDigitPixels(pixels) {
     for(let i=0;i<64;i++) value += pixels[i]*w1[i*32+j];
     hidden[j]=Math.max(0,value);
   }
-  let winner=0, max=-Infinity;
-  for(let j=0;j<10;j++) {
+  let winner=1, max=-Infinity;
+  for(let j=1;j<10;j++) {
     let value=b2[j];
     for(let i=0;i<32;i++)value += hidden[i]*w2[i*10+j];
     if(value>max) { max=value; winner=j; }
