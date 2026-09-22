@@ -313,7 +313,7 @@ function updateRating() {
   const rating = state.rating || ratePuzzle(state.puzzle);
   $('rating').textContent = 'Logic: ' + (rating === 'advanced' ? 'Advanced' : rating === 'medium' ? 'Hidden singles' : 'Singles');
 }
-function clearBoard() { updateProgress(); board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
+function clearBoard() { $('progressLabel').textContent = 'Choose a difficulty to begin'; $('progressTrack').setAttribute('aria-valuenow', '0'); $('progressFill').style.width = '0%'; board.innerHTML = '<div style="grid-column:1/10;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.9rem;padding:2rem;">Click "New Game" to start</div>'; }
 
 /* ═══ Storage ═══ */
 const STORAGE_KEY = 'sudoku_v1';
