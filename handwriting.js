@@ -48,15 +48,58 @@ function distance(a,b) {
   }
   return (sum/a.length+reverse/b.length)/200;
 }
+// The earlier unordered point-cloud comparison loses drawing direction: a 5,
+// 6 and 8 can have similar outlines. Use arc-length stroke ordering as well.
+function resampleStroke(stroke, count = 32) {
+  const points = sampleStroke(stroke);
+  if (!points.length) return [];
+  if (points.length === 1) return Array.from({length:count},()=>[...points[0]]);
+  const accumulated = [0];
+  for (let i = 1; i < points.length; i++)
+    accumulated.push(accumulated[i-1] + Math.hypot(points[i][0]-points[i-1][0],points[i][1]-points[i-1][1]));
+  const total=accumulated[accumulated.length-1];
+  if (!total) return Array.from({length:count},()=>[...points[0]]);
+  let segment=1;
+  return Array.from({length:count},(_,i)=>{
+    const target=total*i/(count-1);
+    while(segment<accumulated.length-1 && accumulated[segment]<target)segment++;
+    const t=(target-accumulated[segment-1])/(accumulated[segment]-accumulated[segment-1] || 1);
+    return [points[segment-1][0]*(1-t)+points[segment][0]*t,
+            points[segment-1][1]*(1-t)+points[segment][1]*t];
+  });
+}
+function orderedDistance(strokes, template) {
+  if (strokes.length !== template.length) return Infinity;
+  const a=normalizedStrokeGroups(strokes), b=normalizedStrokeGroups(template);
+  let total=0;
+  for(let i=0;i<a.length;i++){
+    const aa=resampleStroke(a[i]), bb=resampleStroke(b[i]);
+    for(let j=0;j<aa.length;j++) total+=Math.hypot(aa[j][0]-bb[j][0],aa[j][1]-bb[j][1]);
+  }
+  return total/(a.length*32*100);
+}
+function normalizedStrokeGroups(strokes) {
+  const flat=strokes.flat();
+  const xs=flat.map(p=>p[0]), ys=flat.map(p=>p[1]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const scale=80/Math.max(1,maxX-minX,maxY-minY), midX=(minX+maxX)/2, midY=(minY+maxY)/2;
+  return strokes.map(stroke=>stroke.map(p=>[(p[0]-midX)*scale+50,(p[1]-midY)*scale+50]));
+}
+function scoreTemplate(strokes, template) {
+  const outline=distance(normalizedPoints(strokes),normalizedPoints(template));
+  const sequence=orderedDistance(strokes,template);
+  // Stroke count and order are meaningful for distinguishing closed 8 loops
+  // from open 5/6 shapes. Still allow uncertain digits to be corrected.
+  return Number.isFinite(sequence) ? 0.35*outline+0.65*sequence : outline+0.15;
+}
 function recognizeDigit(strokes) {
   const ink=normalizedPoints(strokes);
   if(ink.length<3) return null;
   const scores=Object.entries(DIGIT_TEMPLATES).map(([digit,variants])=>({
     digit:Number(digit),
-    score:Math.min(...variants.map(template=>distance(ink,normalizedPoints(
-      // Four uses two strokes; other variants represent alternate forms.
+    score:Math.min(...variants.map(template=>scoreTemplate(strokes,
       digit==='4' ? template : [template]
-    ))))
+    )))
   })).sort((a,b)=>a.score-b.score);
   return { digit:scores[0].digit, score:scores[0].score, gap:scores[1].score-scores[0].score };
 }
@@ -70,6 +113,8 @@ function clearInk() {
   handwriting.active=null;
   handwriting.pointer=null;
   handwriting.selected=null;
+  const writingCell=document.querySelector('.cell.writing');
+  if(writingCell) writingCell.classList.remove('writing');
   if(handwriting.ctx && handwriting.canvas) handwriting.ctx.clearRect(0,0,handwriting.canvas.width,handwriting.canvas.height);
 }
 function cancelRecognition() {
@@ -139,7 +184,9 @@ function completeRecognition() {
   const guess=recognizeDigit(handwriting.strokes);
   // A conservative confidence gate; ambiguous strokes must be confirmed
   // before placeNumber, avoiding accidental penalties for recognition errors.
-  if(guess && guess.score<0.085 && guess.gap>0.025) acceptHandwriting(guess.digit);
+  // Do not automatically commit confusable digits: ask the player first.
+  // This avoids false mistake penalties while we gather real-device samples.
+  if(guess && ![5,6,8].includes(guess.digit) && guess.score<0.07 && guess.gap>0.035) acceptHandwriting(guess.digit);
   else showCandidates(guess);
 }
 function startInk(e,idx) {
@@ -149,6 +196,12 @@ function startInk(e,idx) {
   if(!handwriting.canvas || !handwriting.canvas.isConnected) initializeInkCanvas();
   clearTimeout(handwriting.timeout);
   handwriting.selected=idx;
+  // Highlight immediately without rebuilding the cell DOM or disturbing ink.
+  const board=document.getElementById('board');
+  board.querySelectorAll('.cell.selected, .cell.writing').forEach(el=>{
+    el.classList.remove('selected','writing');
+  });
+  e.currentTarget.classList.add('selected','writing');
   // Pen pointer events are handled exclusively by handwriting. Do not call
   // selectCell/renderBoard here: it can repaint while a stroke is underway.
   handwriting.suppressClick=true;
