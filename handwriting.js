@@ -60,7 +60,7 @@ function recognizeDigit(strokes) {
   })).sort((a,b)=>a.score-b.score);
   return { digit:scores[0].digit, score:scores[0].score, gap:scores[1].score-scores[0].score };
 }
-const handwriting = { enabled:false, selected:null, strokes:[], active:null, pointer:null, timeout:null, canvas:null, ctx:null, candidate:null };
+const handwriting = { enabled:false, selected:null, strokes:[], active:null, pointer:null, timeout:null, canvas:null, ctx:null, candidate:null, suppressClick:false };
 const handwritingBtn = document.getElementById('handwritingBtn');
 const handwritingPrompt = document.getElementById('handwritingPrompt');
 function clearInk() {
@@ -82,6 +82,7 @@ function handwritingToggle() {
   handwriting.enabled=!handwriting.enabled;
   handwritingBtn.setAttribute('aria-pressed',String(handwriting.enabled));
   handwritingBtn.textContent='Handwriting: '+(handwriting.enabled?'On':'Off');
+  document.getElementById('board').classList.toggle('handwriting-active', handwriting.enabled);
   if(!handwriting.enabled) cancelRecognition();
 }
 handwritingBtn.addEventListener('click',handwritingToggle);
@@ -148,6 +149,9 @@ function startInk(e,idx) {
   if(!handwriting.canvas || !handwriting.canvas.isConnected) initializeInkCanvas();
   clearTimeout(handwriting.timeout);
   handwriting.selected=idx;
+  // Pen pointer events are handled exclusively by handwriting. Do not call
+  // selectCell/renderBoard here: it can repaint while a stroke is underway.
+  handwriting.suppressClick=true;
   state.selected=idx;
   // A stationary tap still selects a cell; strokes need actual movement.
   handwriting.active=[];
@@ -157,7 +161,6 @@ function startInk(e,idx) {
   handwriting.active.push(point);
   e.currentTarget.setPointerCapture(e.pointerId);
   e.preventDefault();
-  renderBoard();
 }
 function moveInk(e,idx) {
   if(handwriting.pointer!==e.pointerId || handwriting.selected!==idx || !handwriting.active) return;
@@ -185,4 +188,15 @@ function bindHandwriting(cell,idx) {
   cell.addEventListener('pointermove',e=>moveInk(e,idx));
   cell.addEventListener('pointerup',endInk);
   cell.addEventListener('pointercancel',()=>clearInk());
+  // Browsers may dispatch a synthesized click after pointerup even when the
+  // pointerdown was prevented. Consume it before the normal selectCell handler.
+  cell.addEventListener('click',e=>{
+    if(!handwriting.suppressClick) return;
+    // A finger or mouse tap remains a normal selection even if the browser
+    // did not emit the prior pen's synthesized click.
+    if(e.pointerType && e.pointerType!=='pen') { handwriting.suppressClick=false; return; }
+    handwriting.suppressClick=false;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  },true);
 }

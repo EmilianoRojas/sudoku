@@ -327,3 +327,7 @@ h1 {
 .handwriting-choice { padding:0.4rem 0.55rem; min-width:2rem; border-radius:6px; border:1px solid var(--border); background:var(--cell-bg); color:var(--text); cursor:pointer; font:inherit; }
 .handwriting-choice.suggested { border:2px solid var(--accent); }
 .handwriting-choice:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+
+/* Disable browser scrolling/zoom gestures over the drawing surface only while
+   handwriting is active, preventing pointercancel mid-stroke on tablets. */
+.board.handwriting-active, .board.handwriting-active .cell { touch-action: none; }
