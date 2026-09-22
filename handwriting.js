@@ -192,6 +192,9 @@ function bindHandwriting(cell,idx) {
   // pointerdown was prevented. Consume it before the normal selectCell handler.
   cell.addEventListener('click',e=>{
     if(!handwriting.suppressClick) return;
+    // A finger or mouse tap remains a normal selection even if the browser
+    // did not emit the prior pen's synthesized click.
+    if(e.pointerType && e.pointerType!=='pen') { handwriting.suppressClick=false; return; }
     handwriting.suppressClick=false;
     e.preventDefault();
     e.stopImmediatePropagation();
