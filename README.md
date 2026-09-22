@@ -15,7 +15,9 @@ The layout adapts from a two-column desktop view to a compact tablet/phone layou
 
 ## Stylus handwriting
 
-Turn on **Handwriting** and write a large digit inside an editable square with a pen. A short pause after lifting the pen allows multiple strokes. Clearly recognized digits are entered automatically; ambiguous strokes show a 1–9 correction strip so they are not counted as player mistakes. Tap a cell and use the on-screen numpad if recognition is inaccurate. The recognizer is a lightweight offline template matcher, not a trained handwriting model; handwriting varies, so it is important to test with actual tablet pens. Touch and mouse retain ordinary selection behavior.
+Turn on **Handwriting** and write a large digit inside an editable square with a pen. After a short pause, the game enters the recognized digit immediately; there is no confirmation strip. Use Undo or the number pad to correct an incorrect prediction. The trained, quantized digit classifier runs entirely offline in the browser using the included `digit-model.js`; nothing is uploaded. It was trained on scikit-learn's 8×8 handwritten-digits dataset (0–9) and outputs only 1–9 for Sudoku. Training-set evaluation is not a guarantee of accuracy on real tablet strokes. Touch and mouse still select cells normally.
+
+The recognizer renders pen strokes to an 8×8 grayscale image before inference. Because the underlying training dataset is low-resolution, unusual stroke styles and multi-stroke digits can still be misread. 
 
 ## Development
 
